@@ -1,0 +1,715 @@
+on("ready", function() {
+    
+    log("BEGIN")
+    
+    var info = {};
+    const message = (contents) => `<div style="display: inline-block; font-size:1em; background-color: #eee; border: 1px solid #666; padding: .5em; border-radius: .5em;">${contents}</div>`;
+    const message2 = (label, cmd) => `<a style="background-color: #AFE7E6 ; display: inline-block ; border: 1px solid #08779B ; color: black ; border-radius: 10px ; font-weight: bold ; padding: 1px 10px" href="${cmd}">${label}</a>`
+    const message3 = (tip, contents) => `<a class="showtip tipsy" title="${tip}" style="background-color: #AFE7E6 ; display: inline-block ; border: 1px solid #08779B ; color: black ; border-radius: 10px ; font-weight: bold ; padding: 1px 10px">${contents}</a>`
+    const message4 = (tip, contents) => `<a class="showtip tipsy" title="&lt;span style=&quot;color:blue;&quot;&gt;${tip}&lt;\/span&gt; &lt;span style=&quot;color:purple;&quot;&gt;${tip}&lt;\/span&gt;">${contents}</a>`
+    const command = (cmd) => `<code>${cmd}</code>`;
+    const button = (label, cmd, color='#aaffaa') => `<a style="background-color: ${color}; display: inline-block ; border: 1px solid #888 ; color: black ; border-radius: 10px ; font-weight: bold ; padding: 1px 10px" href="${cmd}">${label}</a>`;
+    var shotMods = {
+        "Not Moving":"0",
+        "You're Walking":"-2",
+        "You're Running":"-6",
+        "You're Mounted":"-2",
+        "Target Running":"-4",
+        "Target total concealed":"-4",
+        "Torchligh/Twilight":"-4",
+        "Moonlight":"-6",
+        "Blind":"-8",
+        "Draw Bead for 1 action":"2",
+        "Draw Bead for 2 actions":"4",
+        "Draw Bead for 3 actions":"6",
+        "Draw Bead for 4 actions":"8"
+    }
+    
+    var beadMods = {
+        "Who needs preparation":"0",
+        "Draw Bead for 1 action":"2",
+        "Draw Bead for 2 actions":"4",
+        "Draw Bead for 3 actions":"6",
+        "Draw Bead for 4 actions":"8"
+    }
+    
+    var movementMods = {
+        "Nothing's moving":"0",
+        "You're Walking":"-2",
+        "You're Running":"-6",
+        "You're Mounted":"-2",
+        "Target's Running":"-4"
+    }
+    
+    var visibilityMods = {
+        "I can see fine":"0",
+        "Target total concealed":"-4",
+        "Torchlight/Twilight":"-4",
+        "Moonlight":"-6",
+        "Blind":"-8"
+    }
+    
+    Object.defineProperty(info, "getWeapons", {
+            get : function () {
+                return this.weapons;
+            }
+        });
+    
+    // setting property
+    Object.defineProperty(info, "updateWeapons", {
+        set : function (value) {
+            this.weapons = value;
+        }
+    });
+    
+    on("chat:message", function(msg) {
+        
+        announceExplosions();
+        
+        function announceExplosions(announce) {
+            //var target = distance(info.wstats);
+            let rolls = [];
+            let highRoll =[];
+            let sides = 0;
+            let explosions = 0
+            let raiseBlock = '';
+
+            if (msg.type == 'rollresult') { //determines number of dice explosions for regular rolls (/roll blah blah)
+                rolls.push(msg.content);
+                rolldata = JSON.parse(rolls);
+                //log(rolldata);
+                //rolls = rolldata.rolls[0].results.map(({ v }) => v);
+                rolls = rolldata.rolls.reduce(function(acc, cur){
+                    if (cur.results){
+                        let o = cur.results;
+                        o = JSON.parse(JSON.stringify(o));
+                        log("Upper Rolls = " +o);
+                        log(o.prop && o.prop.constructor);
+                        if (o.constructor === Array){
+                            acc = acc.concat(o);
+                        }
+                        if (o.constructor !== Array){
+                            acc.push(o);
+                        }
+                    }
+                    return acc;
+                }, []);
+                sides = rolldata.rolls.reduce(function(acc, cur){
+                    if (cur.sides){
+                        let o = 0;
+                        o = cur.sides;
+                        o = JSON.parse(JSON.stringify(o));
+                        log(o);
+                        if (o.constructor === Array){
+                            acc = acc.concat(o);
+                        }
+                        if (o.constructor !== Array){
+                            acc.push(o);
+                        }
+                    }
+                    return acc;
+                },[]);
+                rolls = rolls.map(o => o.v);
+                highRoll = Math.max(...rolls);
+                log ("lower rolls = " + rolls);
+                log("highRoll upper = "+highRoll);
+                //sides = rolldata.rolls[0].sides;
+                explosions = Math.floor(highRoll / sides);
+            }
+            if (msg.inlinerolls) { //determines number of dice explosions for inline rolls
+                _.each(msg.inlinerolls, function (r) {
+                    info.total = msg.inlinerolls[0].results.total;
+                    //log("shebang: " +JSON.stringify(msg.inlinerolls[0].results.total));
+                    log("shebang: " + info.total);
+                    rolls = r.results.rolls.reduce(function(acc, cur){
+                        if (cur.results){
+                            let o = cur.results;
+                            log("o = " +JSON.stringify(o));
+                            o = JSON.parse(JSON.stringify(o));
+                            
+                            if (o.constructor === Array){
+                                acc = acc.concat(o);
+                            }
+                            if (o.constructor !== Array){
+                                acc.push(o);
+                            }
+                        }
+                        return acc;
+                    }, []);
+                    sides = r.results.rolls.reduce(function(acc, cur){
+                        if (cur.sides){
+                            let o = 0;
+                            o = cur.sides;
+                            o = JSON.parse(JSON.stringify(o));
+                            
+                            if (o.constructor === Array){
+                                acc = acc.concat(o);
+                            }
+                            if (o.constructor !== Array){
+                                acc.push(o);
+                            }
+                        }
+                        return acc;
+                    },[]);
+                    
+                    //obj = r.results.rolls.map(o=>o.results);
+                    log ("lower rolls = " + rolls);
+                    //rolls = r.results.rolls[0].results.map(({ v }) => v);
+                    rolls = rolls.map(o => o.v);
+                    highRoll = Math.max(...rolls);
+                    //log("highRoll lower = "+highRoll);
+                    log ("rolls = " + rolls); 
+                    //sides = r.results.rolls[0].sides;
+                    explosions = Math.floor(highRoll / sides);
+                });
+                
+
+                    if (explosions > 0) {
+                        sendChat("EXPLOSION(S)", message(explosions) )
+                        
+                        }
+                    if (info.raises > 0){
+                            sendChat('',message(info.raisesChat));
+                    }
+                        //sendChat('EXPLOSION', '/direct <b><big>' + explosions)
+            }
+            
+            
+
+            
+            //if (explosions > 1) {
+            //    sendChat('EXPLOSIONS', message(explosions) + ' ' + info.raises)
+            //}
+        }
+            //function attributes(x){  //finds character sheet attributes of player that initiated this script.
+            
+            //let token = getObj('graphic', x);
+            //let char = getObj('character', token.get('represents'));
+            //info.attrs = findObjs({ type: "attribute", characterid: char.id });
+            //return info.attrs;
+        //}
+        
+        
+        function locateGun(tmi){
+            let weapons = _.filter(tmi, _wp => {
+            if(_wp.get('name').indexOf('repeating_range') > -1 && _wp.get('name').indexOf('ranged_name') > -1) return true;
+            else return false;
+            });
+            weapons = JSON.parse(JSON.stringify(weapons));
+            return weapons;
+        }
+        
+        function weaponSkill(tmi){
+            let deets = _.filter(tmi, _wp => {
+                if(_wp.get('name').indexOf('shootinconc') > -1 && _wp.get('current') === info.wstats.skill ) return true;
+                else return false;
+            });
+            deets = JSON.parse(JSON.stringify(deets));
+            info.deets = deets;
+            info.id = deets.map(o => o.name.split('_')[2]);
+
+            let rangedskill = _.filter(tmi, _wp => {
+                if(_wp.get('name').indexOf('repeating_range') > -1 && _wp.get('name').indexOf(info.id) > -1 && _wp.get('name').indexOf('ranged_skill') > -1) return true;
+                else return false;
+            });
+            rangedskill = JSON.parse(JSON.stringify(rangedskill));
+            info.shootskillshort = rangedskill;
+            info.shootskilllong = "Shootin"+rangedskill.map(o => o.current);
+            log(info.shootskillshort);
+            locateSkillDetails(info.attrs);
+            popModButtons();
+        }
+        
+        
+        //function locateSkill(tmi){ //finds shooter's available shooting skills and pops button for user selection
+        //    let skills = _.filter(tmi, _wp => {
+        //        if(_wp.get('name').indexOf('shootinname') > -1) return true;
+        //        else return false;
+        //    });
+        //    skills = JSON.parse(JSON.stringify(skills));
+        //    let skillNames = skills.map(a => a.current);
+        //    let x = '';
+        //    for (let i = 0; i < skillNames.length; i++ ){
+        //        x += `[${skillNames[i].replace(/[:]/g, ' ').replace(/[']/g, ' ')}](!skillChoice ${skillNames[i].replace(/[:]/g, ' ').replace(/[']/g, ' ')})`;
+        //    }
+        //    sendChat('',x);
+        //}
+        
+        function visibility(){
+            if (!info.selectedtoken){
+                sendChat('', "Naughty! Restart the shoot script/macro")
+                return;
+            }
+            let x = '';
+            let y = Object.keys(visibilityMods);
+            for (let i = 0; i < y.length; i++){
+                let label = `${y[i]}`;
+                let command = `!processvisibilitymod ${Object.values(visibilityMods)[i]}`;
+                x += message2(label, command);
+                //x += `[${y[i]}](!setshotmod ${Object.values(visibilityMods)[i]})`;
+                }
+            sendChat('Marshal', '/w ' + msg.who + ' <br> What\'s block\'n yer view?' +x);
+        }
+        
+        function movement(){
+            if (!info.selectedtoken){
+                sendChat('', "Naughty! Restart the shoot script/macro")
+                return;
+            }
+            let x = '';
+            let y = Object.keys(movementMods);
+            for (let i = 0; i < y.length; i++){
+                //x += `[${y[i]}](!setshotmod ${Object.values(movementMods)[i]})`;
+                let label = `${y[i]}`;
+                let command = `!processmovementmod ${Object.values(movementMods)[i]}`;
+                x += message2(label, command);
+                }
+            sendChat('Marshal', '/w ' + msg.who + ' <br> What\'s moving?<br>' +x);
+        }
+        
+        function bead(){
+            if (!info.selectedtoken){
+                sendChat('', "Naughty! Restart the shoot script/macro")
+                return;
+            }
+            let x = '';
+            let y = Object.keys(beadMods);
+            for (let i = 0; i < y.length; i++){
+                //x += `[${y[i]}](!setshotmod ${Object.values(beadMods)[i]})`;
+                let label = `${y[i]}`;
+                let command = `!processbeadmod ${Object.values(beadMods)[i]}`;
+                x += message2(label, command);
+                //sendChat("Announcer", `(<a style="background-color: #aaffaa ; display: inline-block ; border: 1px solid #888 ; color: black ; border-radius: 10px ; font-weight: bold ; padding: 1px 10px" href=${command}>${label}</a><a style="background-color: #aaffaa ; display: inline-block ; border: 1px solid #888 ; color: black ; border-radius: 10px ; font-weight: bold ; padding: 1px 10px" href=${command}>${label}</a>`);
+
+                }
+            sendChat('Marshal', '/w ' + msg.who + ' <br>Draw a bead for how long?<br>' +x);
+        }
+        
+
+        
+        function locateSkillDetails(tmi){ //finds the die count and mod number of selected Shootin' skill
+            log("locateSkillDetails info.shootskilshort: " +info.shootskillshort);
+            //let deets = _.filter(tmi, _wp => {
+            //    if(_wp.get('name').indexOf('shootinconc') > -1 && _wp.get('current') === info.shootskillshort ) return true;
+            //    else return false;
+            //});
+            //deets = JSON.parse(JSON.stringify(deets));
+            //let id = deets.map(o => o.name.split('_')[2]);
+            //log("id: " +id);
+
+            let diecount = _.filter(tmi, _wp => {
+                if(_wp.get('name').indexOf('shootinconc') > -1 && _wp.get('name').indexOf(info.id) > -1 && _wp.get('name').indexOf('shootinlvl') > -1) return true;
+                else return false;
+            });
+            diecount = JSON.parse(JSON.stringify(diecount));
+            log("diecount: " + diecount);
+            info.diecount = diecount.map(o => o.current);
+            
+            //let rangedskill = _.filter(tmi, _wp => {
+            //    if(_wp.get('name').indexOf('repeating_range') > -1 && _wp.get('name').indexOf(id) > -1 && _wp.get('name').indexOf('ranged_skill') > -1) return true;
+            //    else return false;
+            //});
+            //rangedskill = JSON.parse(JSON.stringify(rangedskill));
+            //info.rangedskill = rangedskill.map(o => o.current);
+            //log(info.rangedskill);
+            
+            let modnumber = _.filter(tmi, _wp => {
+                if(_wp.get('name').indexOf('shootinconc') > -1 && _wp.get('name').indexOf(info.id) > -1 && _wp.get('name').indexOf('shootinconcmod') > -1) return true;
+                else return false;
+            });
+            modnumber = JSON.parse(JSON.stringify(modnumber));
+            info.modnumber = modnumber.map(o => o.current);
+            let deftnessdietype = _.filter(tmi, _wp => {
+                if(_wp.get('name').indexOf('defdtype') > -1 && _wp.get('_characterid') === info.char.id) return true;
+                else return false;
+            });
+            deftnessdietype = JSON.parse(JSON.stringify(deftnessdietype));
+            info.deftnessdietype = deftnessdietype.map(o => o.current);
+            log(info.deftnessdietype);
+        }
+        
+        function weaponChoice (){ //finds shooter's available weapons and displays a button for each.
+                log("msg.content in weaponChoice: "+ msg.content);
+                info.visibilitymods = 0;
+                info.movementmods = 0;
+                info.beadmods = 0;
+                let parts = '';
+                parts = msg.content.split(' ');
+                log("parts in weaponChoice:" + parts);
+                
+                info.selectedtoken = parts[1];
+                info.targettoken = parts[2];
+                
+                let token = getObj('graphic', info.selectedtoken);
+                log(token);
+                log("token.get: " +token.get("represents"));
+                info.char = getObj('character', token.get('represents'));
+                log(" SEE HERE: " +JSON.stringify(info.char));
+                info.attrs = findObjs({ type: "attribute", characterid: info.char.id });
+                log("info.char.id: "+info.char.id);
+                info.weapons = JSON.parse(JSON.stringify(locateGun(info.attrs)));
+                let weaponCache = info.weapons.map(a => a.current);
+                let x = '';
+                log ("Parts = "+parts);    
+                for (let i = 0; i < weaponCache.length; i++){
+                    let label = `${weaponCache[i]}`;
+                    let command = `!wpchoice ${weaponCache[i]}`;
+                    x += message2(label, command);
+                    //x += `[${weaponCache[i]}](!wpchoice ${weaponCache[i]})`;
+                    //log(x);
+                    }
+                sendChat('Marshal', '/w ' + msg.who + ' Choose your weapon ' + x);
+        }
+        
+        function weaponDetails(){ //finds chosen weapon details from character sheet.
+            if (!info.selectedtoken){
+                sendChat('', "Naughty! Restart the shoot script/macro")
+                return;
+            }
+            let args = msg.content.split(' ').slice(1).join(' ');
+            let weapid = info.weapons.find(o => o.current === args);
+            weapid = weapid.name.split('_')[2];
+            let wstats = _.filter(info.attrs, _wp => {
+            if(_wp.get('name').indexOf(weapid) > -1) return true;
+            else return false;
+            });
+            wstats = JSON.parse(JSON.stringify(wstats));
+            wstats = wstats.map(o => ({[o.name.split('_')[o.name.split('_').length - 1]]: o.current}));
+            info.wstats = Object.assign({}, ...wstats);
+            log("info.wstats.skill is" + info.wstats.skill);
+            measure();
+            distance(info.wstats);
+            weaponSkill(info.attrs);
+        }
+        
+        function distance (range) { //takes info.range and computes range mod (if any)
+            info.targetNumber = Math.floor(info.distance/range.range) + 5;
+            log("Your target number is: " + info.targetNumber);
+        }
+        
+        function modButtons(){  //pops buttons for user selection of any applicable shot mods
+            info.shootskillpop = msg.content.split(' ').pop();
+            log(info.shootskillpop);
+            locateSkillDetails(info.attrs);
+            let x = '';
+            let y = Object.keys(shotMods);
+            
+            for (let i = 0; i < y.length; i++){
+                let label = `${y[i]}`;
+                let command = `!setshotmod ${Object.values(shotMods)[i]}`;
+                x += message2(label, command);
+                //x += `[${y[i]}](!setshotmod ${Object.values(shotMods)[i]})`;
+                }
+            sendChat('',x);
+        }
+        
+        //function processSkill(){
+        //    info.shootskill = msg.content.split(' ').pop();
+        //    log(info.shootskill);
+        //    locateSkillDetails(info.attrs);
+        //    popModButtons();
+        //}
+        //sendChat('Marshal', '/w ' + msg.who + ' ' + x);
+        function popModButtons(){
+            let y = ["Movement", "Visibililty", "Draw Bead", "FIRE"];
+            let z = ["!setmovementmod", "!setvisibilitymod", "!setbeadmod", "!fire"];
+            let x = '';
+            //let label = `${y[i]}`;
+            //let command = `!setshotmod ${Object.values(movementMods)[i]}`;
+            for (let i = 0; i < y.length; i++){
+                let label = `${y[i]}`;
+                let command = `${z[i]}`;
+                x += message2(label, command);
+                //x += `[${weaponCache[i]}](!wpchoice ${weaponCache[i]})`;
+                //log(x);
+                }
+            //sendChat('Marshal', '/w ' + msg.who + ' ' + x);
+            //x += message2(label, command);
+            //sendChat('Marshal', '/w ' + msg.who + ' ' + 'Stack mods; fire when done<br>[Movement](!setmovementmod) [Visibility](!setvisibilitymod) [Draw Bead](!setbeadmod)<br>[FIRE](!fire)');
+            sendChat('Marshal', '/w ' + msg.who + ' Stack mods; fire when done<br>'+ x);
+
+            //sendChat('', `[Movement](!setmovementmod)`);
+            //sendChat('',`[Visibility](!setvisibilitymod)`);
+            //sendChat('',`[Draw Bead](!setbeadmod)`);
+            //sendChat('',`[FIRE](!fire)`);
+        }
+        
+        function processMovementMods(){
+            log(msg.content);
+            let parts = msg.content.split(' ');
+            parts = parts.pop();
+            log(parts);
+            info.movementmods = info.movementmods + Number(parts);
+            log(info.movementmods);
+            popModButtons();
+            
+        }
+        
+        function processVisibilityMods(){
+            log(msg.content);
+            let parts = msg.content.split(' ');
+            parts = parts.pop();
+            log(parts);
+            info.visibilitymods = info.visibilitymods + Number(parts);
+            log("visibility mods = " + info.visibilitymods);
+            popModButtons();
+            
+        }
+        
+        function processBeadMods(){
+            log(msg.content);
+            let parts = msg.content.split(' ');
+            parts = parts.pop();
+            log(parts);
+            info.beadmods = info.beadmods + Number(parts);
+            log(info.beadmods);
+            popModButtons();
+            
+        }
+        
+        function resetVariables(){
+            info = {};
+        }
+        function fire(){
+            if (!info.selectedtoken){
+                sendChat('', "Naughty! Restart the shoot script/macro")
+                return;
+            }
+            //var ops = [];
+            //sendChat('GM',"/roll" + info.diecount + info.deftnessdietype + "!!k1+" + info.mods);
+            sendChat('',"[[" + (info.diecount + info.deftnessdietype + "!!k1+" + info.beadmods + "+" + info.movementmods + "+" + info.visibilitymods) + "]]"
+            //"<br> Raises: " + info.total//Math.floor(info.total/info.targetNumber)
+            //function(ops){
+            //    var rollresult = ops[0].inlinerolls[0].results.total;
+             //   log(rollresult);
+             //   sendChat('GM', "Hey dummy, you rolled " + rollresult);
+            //}
+            
+            , 
+            function(ops){
+              processShootRoll(ops[0]);
+            });
+            log("info.total: " +info.total);
+            //resetVariables();
+            //log(info.diecount);
+        }
+        
+        function processShootRoll(ops){
+            var shootrollresult = ops;
+            log("shootrollresult: " + JSON.stringify(shootrollresult));
+            if (shootrollresult.inlinerolls) { //determines number of dice explosions for inline rolls
+                _.each(shootrollresult.inlinerolls, function (r) {
+                    info.total = shootrollresult.inlinerolls[0].results.total;
+                    //log("shebang: " +JSON.stringify(msg.inlinerolls[0].results.total));
+                    log("shebang: " + info.total);
+                    rolls = r.results.rolls.reduce(function(acc, cur){
+                        if (cur.results){
+                            let o = cur.results;
+                            log("o = " +JSON.stringify(o));
+                            o = JSON.parse(JSON.stringify(o));
+                            
+                            if (o.constructor === Array){
+                                acc = acc.concat(o);
+                            }
+                            if (o.constructor !== Array){
+                                acc.push(o);
+                            }
+                        }
+                        return acc;
+                    }, []);
+                    sides = r.results.rolls.reduce(function(acc, cur){
+                        if (cur.sides){
+                            let o = 0;
+                            o = cur.sides;
+                            o = JSON.parse(JSON.stringify(o));
+                            
+                            if (o.constructor === Array){
+                                acc = acc.concat(o);
+                            }
+                            if (o.constructor !== Array){
+                                acc.push(o);
+                            }
+                        }
+                        return acc;
+                    },[]);
+                    
+                    //obj = r.results.rolls.map(o=>o.results);
+                    log ("lower rolls = " + rolls);
+                    //rolls = r.results.rolls[0].results.map(({ v }) => v);
+                    rolls = rolls.map(o => o.v);
+                    info.rollsChat = '';
+                    highRoll = Math.max(...rolls);
+                    info.doppelganger = false;
+                    for (let i = 0; i < rolls.length; i++){
+                        if ( rolls[i] !== highRoll){
+                            x = rolls[i];
+                            info.rollsChat += `&lt;span style=&quot;color:gray;&quot;&gt;${x}&lt;\/span&gt;`;
+                            //info.rollsChat += "<b>" + rolls[i].toString() + "</b>";
+                        }
+                        else if ( rolls[i] === highRoll && info.doppelganger === true ){
+                            x = rolls[i];
+                            info.rollsChat += `&lt;span style=&quot;color:gray;&quot;&gt;${x}&lt;\/span&gt;`;
+                            info.doppelganger = true;
+                            //info.rollsChat += "<b>" + rolls[i].toString() + "</b>";
+                        }
+                        else if ( rolls[i] === highRoll && info.doppelganger === false ){
+                            x = rolls[i];
+                            info.rollsChat += rolls[i].toString();
+                            info.doppelganger = true;
+                            //info.rollsChat += "<b>" + rolls[i].toString() + "</b>";
+                        }
+                        
+                        else{
+                            info.rollsChat += rolls[i].toString();
+                        }
+                        if ( i < (rolls.length - 1)){
+                            info.rollsChat += "+";
+                        }
+                    }
+                    info.expression = "Rolling " + shootrollresult.inlinerolls[0].expression + " = <br>(" + info.rollsChat + ")+" + info.beadmods + "+" + info.movementmods + "+" + info.visibilitymods;
+                    log("info.rollsChat:"+info.rollsChat);
+                    //log("highRoll lower = "+highRoll);
+                    log ("Shoot rolls = " + rolls); 
+                    //sides = r.results.rolls[0].sides;
+                    explosions = Math.floor(highRoll / sides);
+                });
+                
+                if (info.total && info.targetNumber){
+                    info.raises = "<br><i> Raise(s): " + Math.abs(Math.floor(info.total/info.targetNumber)) + "</i>";
+                    log("info.raises: " + info.raises);
+                } else {
+                    info.raises = '';
+                }
+                info.modChat = "Distance: " + info.distance + " feet" +
+                "<br> Bead mods: " + info.beadmods + 
+                "<br> Movement mods: " + info.movementmods + 
+                "<br> Visibility mods: " + info.visibilitymods + 
+                "<br> Target roll: " + info.targetNumber;
+                
+                info.rollChat = "<b>" + msg.who + " rolled: " + info.total + "</b>" + info.raises;
+                sendChat('',message(info.modChat));
+                sendChat('',message3(info.expression, info.rollChat));
+                //"<br> Raises: " + info.total//Math.floor(info.total/info.targetNumber)
+
+                if (explosions > 0) {
+                    sendChat("EXPLOSION(S)", message2(explosions) )
+                    } 
+                if (info.raises > 0){
+                        sendChat('',message(info.raisesChat));
+                }
+                resetVariables();
+                        //sendChat('EXPLOSION', '/direct <b><big>' + explosions)
+            }
+        }
+
+        function processInlinerolls(msg) {
+            log("msg.inlinerolls: " + msg.inlinerolls);
+            if (_.has(msg, 'inlinerolls')) {
+                return _.chain(msg.inlinerolls)
+                .reduce(function(previous, current, index) {
+                    previous['$[[' + index + ']]'] = current.results.total || 0;
+                    return previous;
+                    log("previous: " + previous);
+                },{})
+                .reduce(function(previous, current, index) {
+                    return previous.replace(index, current);
+                }, msg.content)
+                .value();
+            } 
+            else {
+             return msg.content;
+            }
+        }
+        
+        function measure(){
+        var pageid,
+		page,
+		measurements,
+		whisper = false,
+		who;
+		
+        measurements = _.chain(_.union([info.selectedtoken],[info.targettoken]))
+			.uniq()
+			.map(function(t){
+				return getObj('graphic',t);
+			})
+			.reject(_.isUndefined)
+			.map(function(t){
+				pageid=t.get('pageid');
+				return {
+					name: t.get('name') || "Token @ "+Math.round(t.get('left')/70)+','+Math.round(t.get('top')/70),
+					x: t.get('left'),
+					y: t.get('top')
+				};
+			})
+			.reduce(function(m,t,k,l){
+				_.each(_.rest(l,k+1),function(t2){
+					m.push({
+						name1: t.name,
+						name2: t2.name,
+						distance: (Math.sqrt( Math.pow( (t.x-t2.x),2)+Math.pow( (t.y-t2.y),2))/70)
+					});
+				});
+				return m;
+			},[])
+			.value()
+			;
+			page=getObj('page',pageid);
+			if(page) {
+				_.chain(measurements)
+				.reduce(function(m,e){
+					var d=Math.round(page.get('scale_number')*e.distance,2);
+					info.distance = d;
+					m.push("<li>"+e.name1+" to "+e.name2+": <b>"+d+" "+page.get('scale_units')+"</b></li>");
+					return m;
+				},[])
+
+				log(info.distance);
+			}
+        }
+        
+        if ('api' === msg.type && msg.content.toLowerCase().startsWith('!shoot')) {
+            if (msg.type !== 'api') return;
+            weaponChoice();
+        }
+        
+        if ('api' === msg.type && msg.content.toLowerCase().startsWith('!wpchoice')) {
+            if (msg.type !== 'api') return;
+            weaponDetails();
+        }
+        if ('api' === msg.type && msg.content.toLowerCase().startsWith('!skillchoice')) {
+            if (msg.type !== 'api') return;
+            processSkill();
+        }
+        if ('api' === msg.type && msg.content.toLowerCase().startsWith('!processmovementmod')) {
+            if (msg.type !== 'api') return;
+            processMovementMods();
+        }
+        if ('api' === msg.type && msg.content.toLowerCase().startsWith('!processvisibilitymod')) {
+            if (msg.type !== 'api') return;
+            processVisibilityMods();
+        }
+        if ('api' === msg.type && msg.content.toLowerCase().startsWith('!processbeadmod')) {
+            if (msg.type !== 'api') return;
+            processBeadMods();
+        }
+        if ('api' === msg.type && msg.content.toLowerCase().startsWith('!setmovementmod')) {
+            if (msg.type !== 'api') return;
+            movement();
+        } 
+        if ('api' === msg.type && msg.content.toLowerCase().startsWith('!setvisibilitymod')) {
+            if (msg.type !== 'api') return;
+            visibility();
+        } 
+        if ('api' === msg.type && msg.content.toLowerCase().startsWith('!setbeadmod')) {
+            if (msg.type !== 'api') return;
+            bead();
+        }
+        if ('api' === msg.type && msg.content.toLowerCase().startsWith('!fire')) {
+            if (msg.type !== 'api') return;
+            fire();
+            //log(info);
+        } 
+
+    });
+});
