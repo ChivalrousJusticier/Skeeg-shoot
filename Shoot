@@ -202,20 +202,27 @@ on("ready", function() {
         function weaponSkill(tmi){
             let deets = _.filter(tmi, _wp => {
                 if(_wp.get('name').indexOf('shootinconc') > -1 && _wp.get('current') === info.wstats.skill ) return true;
-                else return false;
+                else{
+                    return false;
+                } 
             });
+            log("deets: " + JSON.stringify(deets));
+            if(_.isEmpty(deets)){
+                sendChat('Marshal', '/w ' + msg.who + 'You appear to lack the skill needed to use this weapon.  Check your character sheet under Traits & Aptitudes: Shootin');
+                return;
+            }
             deets = JSON.parse(JSON.stringify(deets));
-            info.deets = deets;
-            info.id = deets.map(o => o.name.split('_')[2]);
+            info.deets = deets; // gun attributes; type, id, 
+            info.id = deets.map(o => o.name.split('_')[2]);// isolates gun id
 
             let rangedskill = _.filter(tmi, _wp => {
                 if(_wp.get('name').indexOf('repeating_range') > -1 && _wp.get('name').indexOf(info.id) > -1 && _wp.get('name').indexOf('ranged_skill') > -1) return true;
                 else return false;
             });
+            
             rangedskill = JSON.parse(JSON.stringify(rangedskill));
             info.shootskillshort = rangedskill;
             info.shootskilllong = "Shootin"+rangedskill.map(o => o.current);
-            log(info.shootskillshort);
             locateSkillDetails(info.attrs);
             popModButtons();
         }
@@ -346,6 +353,7 @@ on("ready", function() {
                 info.char = getObj('character', token.get('represents'));
                 log(" SEE HERE: " +JSON.stringify(info.char));
                 info.attrs = findObjs({ type: "attribute", characterid: info.char.id });
+                log("info.attrs: " + JSON.stringify(info.attrs));
                 log("info.char.id: "+info.char.id);
                 info.weapons = JSON.parse(JSON.stringify(locateGun(info.attrs)));
                 let weaponCache = info.weapons.map(a => a.current);
@@ -371,12 +379,15 @@ on("ready", function() {
             weapid = weapid.name.split('_')[2];
             let wstats = _.filter(info.attrs, _wp => {
             if(_wp.get('name').indexOf(weapid) > -1) return true;
-            else return false;
+            else {
+                //log("no such weapon skill found.");
+                return false;
+            }
             });
             wstats = JSON.parse(JSON.stringify(wstats));
             wstats = wstats.map(o => ({[o.name.split('_')[o.name.split('_').length - 1]]: o.current}));
             info.wstats = Object.assign({}, ...wstats);
-            log("info.wstats.skill is" + info.wstats.skill);
+            log("info.wstats.skill is " + info.wstats.skill);
             measure();
             distance(info.wstats);
             weaponSkill(info.attrs);
@@ -574,8 +585,8 @@ on("ready", function() {
                     explosions = Math.floor(highRoll / sides);
                 });
                 
-                if (info.total && info.targetNumber){
-                    info.raises = "<br><i> Raise(s): " + Math.abs(Math.floor(info.total/info.targetNumber)) + "</i>";
+                if (info.total && info.targetNumber && (info.total >= (info.targetNumber * 2))){
+                    info.raises = "<br><i> Raise(s): " + Math.abs(Math.floor((info.total/info.targetNumber) - 1)) + "</i>";
                     log("info.raises: " + info.raises);
                 } else {
                     info.raises = '';
